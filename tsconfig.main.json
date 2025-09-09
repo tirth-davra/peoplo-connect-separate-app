@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "es2018",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": "./main",
+    "rootDir": "./main",
+    "noEmit": false,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": false,
+    "lib": ["es2018"],
+    "types": ["node"]
+  },
+  "include": [
+    "main/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "renderer",
+    "app",
+    "dist",
+    "**/*.cjs"
+  ]
+}

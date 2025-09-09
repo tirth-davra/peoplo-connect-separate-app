@@ -1,0 +1,234 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Light theme (default) */
+  body {
+    @apply bg-gray-50 text-gray-900;
+  }
+  
+  /* Dark theme */
+  @media (prefers-color-scheme: dark) {
+  body {
+    @apply bg-gray-900 text-white;
+    }
+  }
+  
+  * {
+    @apply border-gray-300;
+  }
+  
+  @media (prefers-color-scheme: dark) {
+  * {
+    @apply border-gray-600;
+    }
+  }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer components {
+  /* Primary Button Styles */
+  .btn-primary {
+    @apply bg-primary-500 hover:bg-primary-600 focus:bg-primary-600 active:bg-primary-700 text-white font-semibold px-6 py-3 rounded-lg transition-all duration-200 shadow-primary hover:shadow-primary-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-primary-outline {
+    @apply border-2 border-primary-500 text-primary-500 hover:bg-primary-500 hover:text-white focus:bg-primary-500 focus:text-white active:bg-primary-600 active:text-white font-semibold px-6 py-3 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  /* Accent Button Styles */
+  .btn-accent {
+    @apply bg-accent-500 hover:bg-accent-600 focus:bg-accent-600 active:bg-accent-700 text-white font-semibold px-6 py-3 rounded-lg transition-all duration-200 shadow-accent hover:shadow-accent-lg focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-accent-outline {
+    @apply border-2 border-accent-500 text-accent-500 hover:bg-accent-500 hover:text-white focus:bg-accent-500 focus:text-white active:bg-accent-600 active:text-white font-semibold px-6 py-3 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  /* Secondary Button Styles */
+  .btn-secondary {
+    @apply bg-gray-200 hover:bg-gray-300 focus:bg-gray-300 active:bg-gray-400 text-gray-900 font-semibold px-6 py-3 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  @media (prefers-color-scheme: dark) {
+    .btn-secondary {
+      @apply bg-gray-700 hover:bg-gray-600 focus:bg-gray-600 active:bg-gray-500 text-white;
+    }
+  }
+  
+  /* Danger Button Styles */
+  .btn-danger {
+    @apply bg-red-600 hover:bg-red-700 focus:bg-red-700 active:bg-red-800 text-white font-semibold px-6 py-3 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  /* Success Button Styles */
+  .btn-success {
+    @apply bg-green-600 hover:bg-green-700 focus:bg-green-700 active:bg-green-800 text-white font-semibold px-6 py-3 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  /* Input Styles */
+  .input-primary {
+    @apply w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200;
+  }
+  
+  @media (prefers-color-scheme: dark) {
+    .input-primary {
+      @apply bg-gray-700 border-gray-600 text-white placeholder-gray-400;
+    }
+  }
+  
+  /* Card Styles */
+  .card-primary {
+    @apply bg-white rounded-xl shadow-xl border border-gray-200 backdrop-blur-sm;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .card-primary {
+      @apply bg-gray-800 border-gray-700;
+    }
+  }
+  
+  .card-gradient {
+    @apply bg-white rounded-xl shadow-xl border border-gray-200;
+  }
+  
+  @media (prefers-color-scheme: dark) {
+    .card-gradient {
+      @apply bg-gray-800 border-gray-700;
+    }
+  }
+  
+  /* Loading Animation */
+  .loading-spinner {
+    @apply animate-spin rounded-full border-b-2 border-primary-500;
+  }
+  
+  /* Solid Color Text */
+  .text-gradient-primary {
+    @apply text-primary-600 dark:text-primary-400;
+  }
+  
+  .text-gradient-accent {
+    @apply text-accent-600 dark:text-accent-400;
+  }
+  
+  .text-gradient-hero {
+    @apply text-primary-600 dark:text-primary-400;
+  }
+
+  /* Recent Session Card Colors - Brand Colors with Better Dark Theme Contrast */
+  .session-card-brand-1 {
+    @apply bg-orange-200 border-orange-400 shadow-orange-200/60;
+  }
+  
+  @media (prefers-color-scheme: dark) {
+    .session-card-brand-1 {
+      @apply bg-orange-700/50 border-orange-500/80 shadow-orange-700/50;
+    }
+  }
+
+  .session-card-brand-2 {
+    @apply bg-cyan-200 border-cyan-400 shadow-cyan-200/60;
+  }
+  
+  @media (prefers-color-scheme: dark) {
+    .session-card-brand-2 {
+      @apply bg-cyan-700/50 border-cyan-500/80 shadow-cyan-700/50;
+    }
+  }
+
+  .session-card-brand-3 {
+    @apply bg-amber-200 border-amber-400 shadow-amber-200/60;
+  }
+  
+  @media (prefers-color-scheme: dark) {
+    .session-card-brand-3 {
+      @apply bg-amber-700/50 border-amber-500/80 shadow-amber-700/50;
+    }
+  }
+
+  .session-card-brand-4 {
+    @apply bg-emerald-200 border-emerald-400 shadow-emerald-200/60;
+  }
+  
+  @media (prefers-color-scheme: dark) {
+    .session-card-brand-4 {
+      @apply bg-emerald-700/50 border-emerald-500/80 shadow-emerald-700/50;
+    }
+  }
+
+  /* Enhanced text styling for session cards to ensure readability */
+  .session-card-text-primary {
+    @apply text-gray-900 font-semibold;
+  }
+  
+  @media (prefers-color-scheme: dark) {
+    .session-card-text-primary {
+      @apply text-white font-semibold;
+    }
+  }
+
+  .session-card-text-secondary {
+    @apply text-gray-700 font-medium;
+  }
+  
+  @media (prefers-color-scheme: dark) {
+    .session-card-text-secondary {
+      @apply text-gray-200 font-medium;
+    }
+  }
+
+  .session-card-text-muted {
+    @apply text-gray-600 text-sm;
+  }
+  
+  @media (prefers-color-scheme: dark) {
+    .session-card-text-muted {
+      @apply text-gray-300 text-sm;
+    }
+  }
+  
+  /* Hover Effects */
+  .hover-lift {
+    @apply transition-transform duration-200 hover:-translate-y-1 hover:shadow-lg;
+  }
+  
+  .hover-glow {
+    @apply transition-all duration-200 hover:shadow-primary-lg;
+  }
+  
+  /* Status Indicators */
+  .status-online {
+    @apply bg-green-500 border-2 border-gray-200;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .status-online {
+      @apply border-gray-800;
+    }
+  }
+  
+  .status-offline {
+    @apply bg-gray-500 border-2 border-gray-200;
+  }
+  
+  @media (prefers-color-scheme: dark) {
+    .status-offline {
+      @apply border-gray-800;
+    }
+  }
+  
+  .status-connecting {
+    @apply bg-accent-500 border-2 border-gray-200 animate-pulse;
+  }
+  
+  @media (prefers-color-scheme: dark) {
+    .status-connecting {
+      @apply border-gray-800;
+    }
+  }
+}

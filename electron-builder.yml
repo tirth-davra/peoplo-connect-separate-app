@@ -1,0 +1,42 @@
+appId: com.deskviewer.remote
+productName: Peoplo Connect
+copyright: Copyright © 2025 Peoplo
+directories:
+  output: dist
+  buildResources: resources
+files:
+  - from: .
+    filter:
+      - package.json
+      - app/**/*
+      - main/**/*
+      - renderer/**/*
+publish: null
+
+# Windows configuration
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: resources/icon.ico
+  artifactName: Peoplo-Connect-Setup-${version}.${ext}
+  compression: maximum
+
+# macOS configuration  
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+  icon: resources/icon.icns
+  artifactName: Peoplo-Connect-${version}.${ext}
+
+# Linux configuration
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  icon: resources/icon.png
+  artifactName: Peoplo-Connect-${version}.${ext}

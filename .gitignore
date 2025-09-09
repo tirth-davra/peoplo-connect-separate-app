@@ -1,0 +1,25 @@
+# dependencies
+node_modules
+
+# logs
+*.log
+
+# next.js
+.next
+next-env.d.ts
+
+# env
+.env
+.env.test
+.env.local
+.env.production
+.env.development
+**/.env
+**/.env.test
+**/.env.local
+**/.env.production
+**/.env.development
+
+# build
+/app
+dist
