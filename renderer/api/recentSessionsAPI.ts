@@ -1,40 +1,6 @@
 import { supabase, RecentSession, UserProfile } from "../lib/supabase";
 import API from "./baseAPI";
 
-// Test Supabase connection
-export const testSupabaseConnection = async () => {
-  try {
-    console.log("🧪 Testing Supabase connection...");
-    
-    // Check if environment variables are set
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      throw new Error("Supabase environment variables not set");
-    }
-    
-    console.log("✅ Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-    console.log("✅ Supabase Key:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "Set" : "Not set");
-    
-    // Test authentication
-    const { data: { user }, error } = await supabase.auth.getUser();
-    
-    if (error) {
-      console.error("❌ Supabase auth error:", error);
-      return { success: false, error: error.message };
-    }
-    
-    if (!user) {
-      console.log("ℹ️ No authenticated user (expected if not logged in)");
-      return { success: true, message: "Supabase connected, no user authenticated" };
-    }
-    
-    console.log("✅ Supabase connected, user authenticated:", user.id);
-    return { success: true, message: "Supabase connected and user authenticated", user };
-    
-  } catch (error) {
-    console.error("❌ Supabase connection test failed:", error);
-    return { success: false, error: error.message };
-  }
-};
 
 // Types
 interface AddRecentSessionResponse {
@@ -85,31 +51,19 @@ export const addRecentSession = async (
   userId?: string
 ): Promise<AddRecentSessionResponse> => {
   try {
-    console.log("🔄 Adding recent session:", session_id);
-    
     // Validate session_id format (10 digits)
     if (!/^\d{10}$/.test(session_id)) {
-      console.error("❌ Invalid session ID format:", session_id);
       throw new Error("Session ID must be exactly 10 digits");
     }
 
     const sessionIdNumber = parseInt(session_id, 10);
-    console.log("📝 Parsed session ID:", sessionIdNumber);
 
     // Use provided userId or try to get from Supabase
     let user;
     if (userId) {
-      console.log("✅ Using provided user ID:", userId);
       user = { id: userId };
     } else {
-      console.log("🧪 Testing Supabase client...");
-      console.log("🧪 Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-      console.log("🧪 Supabase Key exists:", !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-
       // Get current user with better error handling
-      console.log("🔐 Attempting to get current user from Supabase...");
-      
-      // Try to get user with a shorter timeout and better error handling
       let userError;
       try {
         const authResult = await Promise.race([
@@ -117,57 +71,31 @@ export const addRecentSession = async (
           new Promise((_, reject) => 
             setTimeout(() => reject(new Error("Auth timeout")), 5000)
           )
-        ]);
+        ]) as any;
         
         user = authResult.data.user;
         userError = authResult.error;
       } catch (timeoutError) {
-        console.error("❌ Authentication call timed out:", timeoutError);
         // Try alternative approach - get session instead
-        console.log("🔄 Trying alternative: getSession()...");
         try {
           const sessionResult = await supabase.auth.getSession();
           user = sessionResult.data.session?.user || null;
           userError = sessionResult.error;
-          console.log("🔄 Session result:", { user: user ? "exists" : "null", error: userError });
         } catch (sessionError) {
-          console.error("❌ Session call also failed:", sessionError);
           throw new Error("Both getUser() and getSession() failed");
         }
       }
       
-      console.log("🔐 Supabase auth response:", { user: user ? "exists" : "null", error: userError });
-      
       if (userError) {
-        console.error("❌ Error getting user:", userError);
         throw new Error(`Authentication error: ${userError.message}`);
       }
       
       if (!user) {
-        console.error("❌ No authenticated user found");
         throw new Error("User not authenticated");
       }
     }
 
-    console.log("✅ User authenticated:", user.id);
-
-    // Test database connection first
-    console.log("🧪 Testing database connection...");
-    try {
-      const testResult = await supabase
-        .from("recent_sessions")
-        .select("count")
-        .limit(1);
-      console.log("🧪 Database test result:", testResult);
-    } catch (testError) {
-      console.error("❌ Database test failed:", testError);
-      throw new Error(`Database connection failed: ${testError.message}`);
-    }
-
     // Check if this session already exists for this user
-    console.log("🔍 Checking if session already exists...");
-    console.log("🔍 Querying recent_sessions table for user_id:", user.id, "session_id:", sessionIdNumber);
-    
     let existingSession, checkError;
     try {
       const checkResult = await Promise.race([
@@ -180,25 +108,20 @@ export const addRecentSession = async (
         new Promise((_, reject) => 
           setTimeout(() => reject(new Error("Database query timeout")), 10000)
         )
-      ]);
+      ]) as any;
       
       existingSession = checkResult.data;
       checkError = checkResult.error;
     } catch (timeoutError) {
-      console.error("❌ Database query timed out:", timeoutError);
       throw new Error("Database query timeout");
     }
-    
-    console.log("🔍 Existing session query result:", { existingSession, checkError });
 
     if (checkError && checkError.code !== 'PGRST116') {
       // PGRST116 means no rows found, which is expected for new sessions
-      console.error("❌ Error checking existing session:", checkError);
       throw new Error(`Database error: ${checkError.message}`);
     }
 
     if (existingSession && !checkError) {
-      console.log("ℹ️ Session already exists in recent sessions");
       // Update the timestamp to move it to the top
       const { data: updatedSession, error: updateError } = await supabase
         .from("recent_sessions")
@@ -208,7 +131,6 @@ export const addRecentSession = async (
         .single();
 
       if (updateError) {
-        console.error("❌ Error updating existing session:", updateError);
         throw new Error(`Update error: ${updateError.message}`);
       }
 
@@ -218,9 +140,6 @@ export const addRecentSession = async (
         data: updatedSession || existingSession,
       };
     }
-
-    console.log("➕ Creating new recent session...");
-    console.log("➕ Insert data:", { user_id: user.id, session_id: sessionIdNumber });
 
     // Create new session
     let newSession, insertError;
@@ -237,23 +156,17 @@ export const addRecentSession = async (
         new Promise((_, reject) => 
           setTimeout(() => reject(new Error("Database insert timeout")), 10000)
         )
-      ]);
+      ]) as any;
       
       newSession = insertResult.data;
       insertError = insertResult.error;
     } catch (timeoutError) {
-      console.error("❌ Database insert timed out:", timeoutError);
       throw new Error("Database insert timeout");
     }
-    
-    console.log("➕ Insert result:", { newSession, insertError });
 
     if (insertError) {
-      console.error("❌ Error inserting new session:", insertError);
       throw new Error(`Insert error: ${insertError.message}`);
     }
-
-    console.log("✅ Recent session added successfully:", newSession);
 
     return {
       success: true,
@@ -261,13 +174,6 @@ export const addRecentSession = async (
       data: newSession,
     };
   } catch (error) {
-    console.error("❌ addRecentSession error:", error);
-    console.error("❌ Error stack:", error.stack);
-    console.error("❌ Error details:", {
-      message: error.message,
-      name: error.name,
-      cause: error.cause
-    });
     throw new Error(error.message || "Unknown error occurred");
   }
 };

@@ -10,7 +10,6 @@ import {
   getRecentSessions,
   removeRecentSession,
   checkBatchSessionStatus,
-  testSupabaseConnection,
 } from "../api/recentSessionsAPI";
 import {
   getStatusWebSocketManager,
@@ -148,16 +147,7 @@ function UnifiedPageContent() {
 
   // Load recent sessions on component mount
   useEffect(() => {
-    // Test Supabase connection first
-    testSupabaseConnection().then((result) => {
-      if (result.success) {
-        console.log("✅ Supabase connection test passed:", result.message);
-        loadRecentSessions();
-      } else {
-        console.error("❌ Supabase connection test failed:", result.error);
-        setErrorMessage(`Database connection issue: ${result.error}`);
-      }
-    });
+    loadRecentSessions();
   }, []);
 
   // Cleanup effect - runs when component unmounts or sessionCode changes
@@ -366,41 +356,24 @@ function UnifiedPageContent() {
 
   const addToRecentSessions = async (sessionId: string) => {
     try {
-      console.log("🔄 Attempting to add recent session:", sessionId);
-      
       // Validate session ID before attempting to add
       if (!sessionId || !/^\d{10}$/.test(sessionId)) {
-        console.error("❌ Invalid session ID for recent sessions:", sessionId);
         return;
       }
 
       // Check if user is authenticated in context first
-      console.log("🔍 Checking authentication context...");
-      console.log("🔍 User object:", user);
-      console.log("🔍 User ID:", user?.id);
-      console.log("🔍 Session object:", session);
-      
       if (!user || !user.id) {
-        console.error("❌ No authenticated user in context");
-        console.error("❌ User:", user);
-        console.error("❌ User ID:", user?.id);
         setErrorMessage("Please log in to save recent sessions");
         setTimeout(() => setErrorMessage(""), 5000);
         return;
       }
 
-      console.log("✅ User authenticated in context:", user.id);
-
       const response = await addRecentSession(sessionId, user.id);
       if (response.success) {
-        console.log("✅ Recent session added successfully:", response.message);
         // Reload recent sessions to get the updated list
         await loadRecentSessions();
-      } else {
-        console.error("❌ Failed to add recent session:", response.message);
       }
     } catch (error) {
-      console.error("❌ Failed to add recent session:", error);
       // Show user-friendly error message
       setErrorMessage(`Failed to save session to recent: ${error.message}`);
       setTimeout(() => setErrorMessage(""), 5000);
@@ -814,7 +787,6 @@ function UnifiedPageContent() {
             setConnectionStatus("connected");
             setDisconnectionReason(""); // Clear any previous disconnection reason
             // Add to recent sessions when connection is successful
-            console.log("🔗 Connection established, adding to recent sessions:", targetSessionId);
             addToRecentSessions(targetSessionId);
 
             // Ensure video stream is properly set up when connection is established
@@ -1494,42 +1466,6 @@ function UnifiedPageContent() {
                 <div>Video Ended: {videoRef.current?.ended ? "Yes" : "No"}</div>
                 <div>Session: {mySessionId}</div>
                 <div>Remote: {remoteSessionId}</div>
-                <button
-                  onClick={() => {
-                    console.log("🧪 Manual Supabase test...");
-                    console.log("URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-                    console.log("Key exists:", !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-                    testSupabaseConnection();
-                  }}
-                  className="mt-2 px-2 py-1 bg-blue-600 text-white rounded text-xs"
-                >
-                  Test DB
-                </button>
-                <button
-                  onClick={() => {
-                    console.log("🧪 Auth context test...");
-                    console.log("User from context:", user);
-                    console.log("Session from context:", session);
-                    console.log("SessionCode from context:", sessionCode);
-                    console.log("User ID:", user?.id);
-                    console.log("User email:", user?.email);
-                  }}
-                  className="mt-1 px-2 py-1 bg-purple-600 text-white rounded text-xs"
-                >
-                  Test Auth
-                </button>
-                <button
-                  onClick={() => {
-                    if (user?.id) {
-                      addToRecentSessions("1234567890");
-                    } else {
-                      console.error("❌ No user ID available for test");
-                    }
-                  }}
-                  className="mt-1 px-2 py-1 bg-green-600 text-white rounded text-xs"
-                >
-                  Test Add
-                </button>
               </div>
             )}
             <button
