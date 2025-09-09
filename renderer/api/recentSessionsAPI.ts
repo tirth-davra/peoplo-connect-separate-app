@@ -151,13 +151,45 @@ export const addRecentSession = async (
 
     console.log("✅ User authenticated:", user.id);
 
+    // Test database connection first
+    console.log("🧪 Testing database connection...");
+    try {
+      const testResult = await supabase
+        .from("recent_sessions")
+        .select("count")
+        .limit(1);
+      console.log("🧪 Database test result:", testResult);
+    } catch (testError) {
+      console.error("❌ Database test failed:", testError);
+      throw new Error(`Database connection failed: ${testError.message}`);
+    }
+
     // Check if this session already exists for this user
-    const { data: existingSession, error: checkError } = await supabase
-      .from("recent_sessions")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("session_id", sessionIdNumber)
-      .single();
+    console.log("🔍 Checking if session already exists...");
+    console.log("🔍 Querying recent_sessions table for user_id:", user.id, "session_id:", sessionIdNumber);
+    
+    let existingSession, checkError;
+    try {
+      const checkResult = await Promise.race([
+        supabase
+          .from("recent_sessions")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("session_id", sessionIdNumber)
+          .single(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Database query timeout")), 10000)
+        )
+      ]);
+      
+      existingSession = checkResult.data;
+      checkError = checkResult.error;
+    } catch (timeoutError) {
+      console.error("❌ Database query timed out:", timeoutError);
+      throw new Error("Database query timeout");
+    }
+    
+    console.log("🔍 Existing session query result:", { existingSession, checkError });
 
     if (checkError && checkError.code !== 'PGRST116') {
       // PGRST116 means no rows found, which is expected for new sessions
@@ -188,16 +220,33 @@ export const addRecentSession = async (
     }
 
     console.log("➕ Creating new recent session...");
+    console.log("➕ Insert data:", { user_id: user.id, session_id: sessionIdNumber });
 
     // Create new session
-    const { data: newSession, error: insertError } = await supabase
-      .from("recent_sessions")
-      .insert({
-        user_id: user.id,
-        session_id: sessionIdNumber,
-      })
-      .select()
-      .single();
+    let newSession, insertError;
+    try {
+      const insertResult = await Promise.race([
+        supabase
+          .from("recent_sessions")
+          .insert({
+            user_id: user.id,
+            session_id: sessionIdNumber,
+          })
+          .select()
+          .single(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Database insert timeout")), 10000)
+        )
+      ]);
+      
+      newSession = insertResult.data;
+      insertError = insertResult.error;
+    } catch (timeoutError) {
+      console.error("❌ Database insert timed out:", timeoutError);
+      throw new Error("Database insert timeout");
+    }
+    
+    console.log("➕ Insert result:", { newSession, insertError });
 
     if (insertError) {
       console.error("❌ Error inserting new session:", insertError);
