@@ -89,7 +89,7 @@ export default function UnifiedPage() {
 }
 
 function UnifiedPageContent() {
-  const { sessionCode, logout, user, session } = useAuth();
+  const { sessionCode, logout, user, session, isLoading } = useAuth();
 
   // Use stored session code instead of auto-generating
   const [mySessionId, setMySessionId] = useState<string>("");
@@ -149,6 +149,18 @@ function UnifiedPageContent() {
   useEffect(() => {
     loadRecentSessions();
   }, []);
+
+  // Store pending session to add when user becomes available
+  const [pendingSessionToAdd, setPendingSessionToAdd] = useState<string | null>(null);
+
+  // Watch for user becoming available and add pending session
+  useEffect(() => {
+    if (pendingSessionToAdd && user && user.id && !isLoading) {
+      console.log("🔄 Adding pending session to recent:", pendingSessionToAdd);
+      addToRecentSessions(pendingSessionToAdd);
+      setPendingSessionToAdd(null);
+    }
+  }, [user, isLoading, pendingSessionToAdd]);
 
   // Cleanup effect - runs when component unmounts or sessionCode changes
   useEffect(() => {
@@ -787,7 +799,14 @@ function UnifiedPageContent() {
             setConnectionStatus("connected");
             setDisconnectionReason(""); // Clear any previous disconnection reason
             // Add to recent sessions when connection is successful
-            addToRecentSessions(targetSessionId);
+            if (user && user.id && !isLoading) {
+              console.log("✅ User ready, adding to recent sessions immediately:", targetSessionId);
+              addToRecentSessions(targetSessionId);
+            } else {
+              console.log("⏳ User not ready, storing pending session:", targetSessionId, { user: !!user, isLoading });
+              // Store for later when user becomes available
+              setPendingSessionToAdd(targetSessionId);
+            }
 
             // Ensure video stream is properly set up when connection is established
             setTimeout(() => {
