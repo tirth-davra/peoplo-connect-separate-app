@@ -79,9 +79,10 @@ interface RemoveRecentSessionResponse {
   message: string;
 }
 
-// Add a recent session for the current user
+// Add a recent session for the current user (with optional user ID parameter)
 export const addRecentSession = async (
-  session_id: string
+  session_id: string,
+  userId?: string
 ): Promise<AddRecentSessionResponse> => {
   try {
     console.log("🔄 Adding recent session:", session_id);
@@ -95,20 +96,57 @@ export const addRecentSession = async (
     const sessionIdNumber = parseInt(session_id, 10);
     console.log("📝 Parsed session ID:", sessionIdNumber);
 
-    // Get current user with better error handling
-    const {
-      data: { user },
-      error: userError
-    } = await supabase.auth.getUser();
-    
-    if (userError) {
-      console.error("❌ Error getting user:", userError);
-      throw new Error(`Authentication error: ${userError.message}`);
-    }
-    
-    if (!user) {
-      console.error("❌ No authenticated user found");
-      throw new Error("User not authenticated");
+    // Use provided userId or try to get from Supabase
+    let user;
+    if (userId) {
+      console.log("✅ Using provided user ID:", userId);
+      user = { id: userId };
+    } else {
+      console.log("🧪 Testing Supabase client...");
+      console.log("🧪 Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
+      console.log("🧪 Supabase Key exists:", !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+
+      // Get current user with better error handling
+      console.log("🔐 Attempting to get current user from Supabase...");
+      
+      // Try to get user with a shorter timeout and better error handling
+      let userError;
+      try {
+        const authResult = await Promise.race([
+          supabase.auth.getUser(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error("Auth timeout")), 5000)
+          )
+        ]);
+        
+        user = authResult.data.user;
+        userError = authResult.error;
+      } catch (timeoutError) {
+        console.error("❌ Authentication call timed out:", timeoutError);
+        // Try alternative approach - get session instead
+        console.log("🔄 Trying alternative: getSession()...");
+        try {
+          const sessionResult = await supabase.auth.getSession();
+          user = sessionResult.data.session?.user || null;
+          userError = sessionResult.error;
+          console.log("🔄 Session result:", { user: user ? "exists" : "null", error: userError });
+        } catch (sessionError) {
+          console.error("❌ Session call also failed:", sessionError);
+          throw new Error("Both getUser() and getSession() failed");
+        }
+      }
+      
+      console.log("🔐 Supabase auth response:", { user: user ? "exists" : "null", error: userError });
+      
+      if (userError) {
+        console.error("❌ Error getting user:", userError);
+        throw new Error(`Authentication error: ${userError.message}`);
+      }
+      
+      if (!user) {
+        console.error("❌ No authenticated user found");
+        throw new Error("User not authenticated");
+      }
     }
 
     console.log("✅ User authenticated:", user.id);
@@ -175,6 +213,12 @@ export const addRecentSession = async (
     };
   } catch (error) {
     console.error("❌ addRecentSession error:", error);
+    console.error("❌ Error stack:", error.stack);
+    console.error("❌ Error details:", {
+      message: error.message,
+      name: error.name,
+      cause: error.cause
+    });
     throw new Error(error.message || "Unknown error occurred");
   }
 };
