@@ -231,18 +231,23 @@ export const getRecentSessions =
          ]) || []
        );
 
-       // Show all recent sessions with owner info
-       const activeRecentSessions = recentSessions.map((s) => {
-         const sessionIdNum = Number(s.session_id);
-         const ownerInfo = sessionIdToOwner.get(sessionIdNum);
+      // Filter to only show recent sessions that are currently active (exist in user_profiles)
+      const activeRecentSessions = recentSessions
+        .filter((s) => {
+          const sessionIdNum = Number(s.session_id);
+          return sessionIdToOwner.has(sessionIdNum); // Only include if session exists in user_profiles
+        })
+        .map((s) => {
+          const sessionIdNum = Number(s.session_id);
+          const ownerInfo = sessionIdToOwner.get(sessionIdNum);
 
-         return {
-           id: s.id,
-           session_id: sessionIdNum,
-           first_name: ownerInfo?.first_name || "Unknown",
-           last_name: ownerInfo?.last_name || "User",
-         };
-       });
+          return {
+            id: s.id,
+            session_id: sessionIdNum,
+            first_name: ownerInfo?.first_name || "Unknown",
+            last_name: ownerInfo?.last_name || "User",
+          };
+        });
 
       return {
         success: true,
@@ -253,6 +258,82 @@ export const getRecentSessions =
       throw new Error(error.message);
     }
   };
+
+// Clean up inactive recent sessions (remove sessions that no longer exist in user_profiles)
+export const cleanupInactiveRecentSessions = async (): Promise<{ success: boolean; message: string; cleanedCount: number }> => {
+  try {
+    // Get current user
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+
+    // Get all recent sessions for this user
+    const { data: recentSessions, error: sessionsError } = await supabase
+      .from("recent_sessions")
+      .select("session_id")
+      .eq("user_id", user.id);
+
+    if (sessionsError) {
+      throw new Error(sessionsError.message);
+    }
+
+    if (!recentSessions || recentSessions.length === 0) {
+      return {
+        success: true,
+        message: "No recent sessions to clean up",
+        cleanedCount: 0,
+      };
+    }
+
+    // Get session IDs from recent sessions
+    const sessionIds = recentSessions.map((s) => Number(s.session_id));
+
+    // Find which session IDs still exist in user_profiles
+    const { data: activeSessions, error: activeError } = await supabase
+      .from("user_profiles")
+      .select("session_id")
+      .in("session_id", sessionIds);
+
+    if (activeError) {
+      throw new Error(activeError.message);
+    }
+
+    const activeSessionIds = new Set(activeSessions?.map((s) => Number(s.session_id)) || []);
+
+    // Find inactive session IDs
+    const inactiveSessionIds = sessionIds.filter((id) => !activeSessionIds.has(id));
+
+    if (inactiveSessionIds.length === 0) {
+      return {
+        success: true,
+        message: "No inactive sessions found",
+        cleanedCount: 0,
+      };
+    }
+
+    // Remove inactive sessions from recent_sessions
+    const { error: deleteError } = await supabase
+      .from("recent_sessions")
+      .delete()
+      .eq("user_id", user.id)
+      .in("session_id", inactiveSessionIds);
+
+    if (deleteError) {
+      throw new Error(deleteError.message);
+    }
+
+    return {
+      success: true,
+      message: `Cleaned up ${inactiveSessionIds.length} inactive sessions`,
+      cleanedCount: inactiveSessionIds.length,
+    };
+  } catch (error) {
+    throw new Error(error.message || "Unknown error occurred");
+  }
+};
 
 // Remove a recent session
 export const removeRecentSession = async (

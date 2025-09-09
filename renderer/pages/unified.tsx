@@ -10,6 +10,7 @@ import {
   getRecentSessions,
   removeRecentSession,
   checkBatchSessionStatus,
+  cleanupInactiveRecentSessions,
 } from "../api/recentSessionsAPI";
 import {
   getStatusWebSocketManager,
@@ -156,7 +157,6 @@ function UnifiedPageContent() {
   // Watch for user becoming available and add pending session
   useEffect(() => {
     if (pendingSessionToAdd && user && user.id && !isLoading) {
-      console.log("🔄 Adding pending session to recent:", pendingSessionToAdd);
       addToRecentSessions(pendingSessionToAdd);
       setPendingSessionToAdd(null);
     }
@@ -310,9 +310,19 @@ function UnifiedPageContent() {
     };
   }, [connectionStatus, remoteSessionId]);
 
-  const loadRecentSessions = async () => {
+  const loadRecentSessions = async (cleanupFirst = false) => {
     try {
       setLoadingRecentSessions(true);
+      
+      // Optionally clean up inactive sessions first
+      if (cleanupFirst) {
+        try {
+          await cleanupInactiveRecentSessions();
+        } catch (cleanupError) {
+          console.warn("Cleanup failed, continuing with load:", cleanupError);
+        }
+      }
+      
       const response = await getRecentSessions();
       if (response.success && response.data.length > 0) {
         // Get session IDs to check their status (only once when app loads)
@@ -800,10 +810,8 @@ function UnifiedPageContent() {
             setDisconnectionReason(""); // Clear any previous disconnection reason
             // Add to recent sessions when connection is successful
             if (user && user.id && !isLoading) {
-              console.log("✅ User ready, adding to recent sessions immediately:", targetSessionId);
               addToRecentSessions(targetSessionId);
             } else {
-              console.log("⏳ User not ready, storing pending session:", targetSessionId, { user: !!user, isLoading });
               // Store for later when user becomes available
               setPendingSessionToAdd(targetSessionId);
             }
@@ -1098,7 +1106,8 @@ function UnifiedPageContent() {
     setSessionErrorDetails(null);
 
     try {
-      await loadRecentSessions();
+      // Reload recent sessions with cleanup
+      await loadRecentSessions(true);
       setErrorMessage(""); // Clear any existing error messages
     } catch (error) {
       console.error("Failed to refresh sessions:", error);
@@ -1790,7 +1799,7 @@ function UnifiedPageContent() {
                     Recent Sessions
                   </h2>
                   <button
-                    onClick={loadRecentSessions}
+                    onClick={() => loadRecentSessions()}
                     disabled={loadingRecentSessions}
                     className="text-gray-600 dark:text-gray-400 hover:text-primary-400 p-2 rounded-lg hover:bg-primary-500/10 transition-colors disabled:opacity-50"
                     title="Refresh recent sessions"
