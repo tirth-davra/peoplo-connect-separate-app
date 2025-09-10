@@ -195,6 +195,10 @@ export class WebRTCManager {
         case "key_down":
         case "key_up":
           if (this.isHost && message.keyboardData) {
+            // Debug log for space key to track the issue
+            if (message.keyboardData.key === " ") {
+              console.log(`🔤 Received ${message.type} for space via DataChannel`);
+            }
             this.onKeyboardEvent?.(message.keyboardData, message.type);
           }
           break;
@@ -565,10 +569,17 @@ export class WebRTCManager {
       case "mouse_click":
       case "mouse_down":
       case "mouse_up":
-      case "key_down":
-      case "key_up":
       case "screen_resolution":
         console.warn(`⚠️ Received ${message.type} via WebSocket - should use DataChannel`);
+        break;
+
+      // Critical keys can still be processed via WebSocket as fallback
+      case "key_down":
+      case "key_up":
+        if (this.isHost && message.keyboardData) {
+          console.log(`🔤 Fallback: processing ${message.type} for "${message.keyboardData.key}" via WebSocket`);
+          this.onKeyboardEvent?.(message.keyboardData, message.type);
+        }
         break;
 
       case "permission_request":
@@ -750,11 +761,23 @@ export class WebRTCManager {
         keyboardData: { key, code, ctrlKey, shiftKey, altKey, metaKey },
       };
 
-      // Send via DataChannel only
+      // Send via DataChannel first
       const dataChannelSent = this.sendDataChannelMessage(message);
       
       if (!dataChannelSent) {
-        console.warn(`⚠️ Failed to send ${type} - DataChannel not available`);
+        console.warn(`⚠️ DataChannel not available for ${type} key "${key}"`);
+        
+        // For critical keys, use WebSocket as fallback to ensure they're sent
+        const criticalKeys = [" ", "Enter", "Backspace", "Tab"];
+        if (criticalKeys.includes(key) && this.ws?.readyState === WebSocket.OPEN) {
+          console.log(`🚨 Fallback: sending "${key}" via WebSocket`);
+          this.sendSignalingMessage(message);
+        }
+      } else {
+        // Debug log for space key to track the issue
+        if (key === " ") {
+          console.log("✅ Space sent via DataChannel");
+        }
       }
     }
   }
