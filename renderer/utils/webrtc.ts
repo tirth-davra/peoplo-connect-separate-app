@@ -30,9 +30,11 @@ export interface SignalingMessage {
 export class WebRTCManager {
   private peerConnection: RTCPeerConnection | null = null;
   private ws: WebSocket | null = null;
+  private dataChannel: RTCDataChannel | null = null;
   private sessionId: string = "";
   private clientId: string = "";
   private isHost: boolean = false;
+  private useDataChannelForInput: boolean = false; // Flag to control input method
   private onStreamReceived?: (stream: MediaStream) => void;
   private onConnectionStateChange?: (state: string) => void;
   private onMouseEvent?: (
@@ -113,11 +115,132 @@ export class WebRTCManager {
         this.onStreamReceived?.(event.streams[0]);
       }
     };
+
+    // Setup DataChannel handler for incoming channels
+    this.setupDataChannelHandler();
   }
 
   // Method to reinitialize the peer connection for role reversal scenarios
   public reinitializePeerConnection() {
     this.setupPeerConnection();
+  }
+
+  // Setup DataChannel for input events
+  private setupDataChannel() {
+    if (!this.peerConnection) {
+      console.error("Peer connection not initialized");
+      return;
+    }
+
+    // Create DataChannel with optimized settings for low latency
+    this.dataChannel = this.peerConnection.createDataChannel("inputEvents", {
+      ordered: false, // Allow out-of-order delivery for better latency
+      maxRetransmits: 0, // Don't retransmit for real-time input
+      maxPacketLifeTime: 100, // 100ms max packet lifetime
+    });
+
+    this.dataChannel.onopen = () => {
+      console.log("✅ DataChannel opened for input events");
+      this.useDataChannelForInput = true;
+    };
+
+    this.dataChannel.onclose = () => {
+      console.log("❌ DataChannel closed for input events");
+      this.useDataChannelForInput = false;
+      this.dataChannel = null;
+    };
+
+    this.dataChannel.onerror = (error) => {
+      console.error("❌ DataChannel error:", error);
+      this.useDataChannelForInput = false;
+    };
+
+    this.dataChannel.onmessage = (event) => {
+      this.handleDataChannelMessage(event.data);
+    };
+  }
+
+  // Handle incoming DataChannel messages
+  private handleDataChannelMessage(data: string) {
+    try {
+      const message = JSON.parse(data);
+      
+      // Handle input events from DataChannel
+      switch (message.type) {
+        case "mouse_move":
+        case "mouse_click":
+        case "mouse_down":
+        case "mouse_up":
+          if (this.isHost && message.mouseData) {
+            this.onMouseEvent?.(message.mouseData, message.type);
+          }
+          break;
+
+        case "key_down":
+        case "key_up":
+          if (this.isHost && message.keyboardData) {
+            this.onKeyboardEvent?.(message.keyboardData, message.type);
+          }
+          break;
+
+        case "screen_resolution":
+          if (!this.isHost && message.resolution) {
+            this.onScreenResolution?.(message.resolution);
+          }
+          break;
+
+        default:
+          console.warn("Unknown DataChannel message type:", message.type);
+      }
+    } catch (error) {
+      console.error("Error parsing DataChannel message:", error);
+    }
+  }
+
+  // Send message via DataChannel
+  private sendDataChannelMessage(message: any) {
+    if (this.dataChannel && this.dataChannel.readyState === "open") {
+      this.dataChannel.send(JSON.stringify(message));
+      return true;
+    }
+    return false;
+  }
+
+  // Handle incoming DataChannel (when peer creates it)
+  private setupDataChannelHandler() {
+    if (!this.peerConnection) {
+      console.error("Peer connection not initialized");
+      return;
+    }
+
+    this.peerConnection.ondatachannel = (event) => {
+      const channel = event.channel;
+      console.log("📡 Received DataChannel:", channel.label);
+
+      if (channel.label === "inputEvents") {
+        this.dataChannel = channel;
+
+        channel.onopen = () => {
+          console.log("✅ DataChannel opened for input events");
+          this.useDataChannelForInput = true;
+        };
+
+        channel.onclose = () => {
+          console.log("❌ DataChannel closed for input events");
+          this.useDataChannelForInput = false;
+          this.dataChannel = null;
+        };
+
+        channel.onerror = (error) => {
+          console.error("❌ DataChannel error:", error);
+          this.useDataChannelForInput = false;
+        };
+
+        channel.onmessage = (event) => {
+          this.handleDataChannelMessage(event.data);
+        };
+      }
+    };
   }
 
   public async startHost(
@@ -130,6 +253,9 @@ export class WebRTCManager {
 
     await this.connectWebSocket();
     await this.createSession();
+
+    // Setup DataChannel for input events (host creates the channel)
+    this.setupDataChannel();
 
     // Only add stream if provided (for backward compatibility)
     if (stream) {
@@ -562,6 +688,17 @@ export class WebRTCManager {
     this.onDisconnectionReason = callback;
   }
 
+  // Method to enable/disable DataChannel usage for input events
+  public setUseDataChannelForInput(useDataChannel: boolean) {
+    this.useDataChannelForInput = useDataChannel;
+    console.log(`🔄 DataChannel for input events: ${useDataChannel ? 'enabled' : 'disabled'}`);
+  }
+
+  // Method to check if DataChannel is available and ready
+  public isDataChannelReady(): boolean {
+    return this.dataChannel !== null && this.dataChannel.readyState === "open";
+  }
+
   public sendKeyboardEvent(
     type: "key_down" | "key_up",
     key: string,
@@ -571,13 +708,28 @@ export class WebRTCManager {
     altKey: boolean,
     metaKey: boolean
   ) {
-    if (!this.isHost && this.ws?.readyState === WebSocket.OPEN) {
-      this.sendSignalingMessage({
+    if (!this.isHost) {
+      const message = {
         type,
         sessionId: this.sessionId,
         clientId: this.clientId,
         keyboardData: { key, code, ctrlKey, shiftKey, altKey, metaKey },
-      });
+      };
+
+      // Try DataChannel first (if available and open)
+      const dataChannelSent = this.sendDataChannelMessage(message);
+      
+      // Always send via WebSocket as fallback during transition
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.sendSignalingMessage(message);
+      }
+
+      // Log which method was used for debugging
+      if (dataChannelSent) {
+        console.log(`📡 Sent ${type} via DataChannel`);
+      } else {
+        console.log(`🌐 Sent ${type} via WebSocket (DataChannel not available)`);
+      }
     }
   }
 
@@ -587,24 +739,54 @@ export class WebRTCManager {
     y: number,
     button?: "left" | "right" | "middle"
   ) {
-    if (!this.isHost && this.ws?.readyState === WebSocket.OPEN) {
-      this.sendSignalingMessage({
+    if (!this.isHost) {
+      const message = {
         type,
         sessionId: this.sessionId,
         clientId: this.clientId,
         mouseData: { x, y, button },
-      });
+      };
+
+      // Try DataChannel first (if available and open)
+      const dataChannelSent = this.sendDataChannelMessage(message);
+      
+      // Always send via WebSocket as fallback during transition
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.sendSignalingMessage(message);
+      }
+
+      // Log which method was used for debugging (only for non-mouse_move events to avoid spam)
+      if (type !== "mouse_move") {
+        if (dataChannelSent) {
+          console.log(`📡 Sent ${type} via DataChannel`);
+        } else {
+          console.log(`🌐 Sent ${type} via WebSocket (DataChannel not available)`);
+        }
+      }
     }
   }
 
   public sendScreenResolution(width: number, height: number) {
     if (this.isHost) {
-      this.sendSignalingMessage({
+      const message = {
         type: "screen_resolution",
         sessionId: this.sessionId,
         clientId: this.clientId,
         resolution: { width, height },
-      });
+      };
+
+      // Try DataChannel first (if available and open)
+      const dataChannelSent = this.sendDataChannelMessage(message);
+      
+      // Always send via WebSocket as fallback during transition
+      this.sendSignalingMessage(message);
+
+      // Log which method was used for debugging
+      if (dataChannelSent) {
+        console.log("📡 Sent screen_resolution via DataChannel");
+      } else {
+        console.log("🌐 Sent screen_resolution via WebSocket (DataChannel not available)");
+      }
     }
   }
 
@@ -706,6 +888,12 @@ export class WebRTCManager {
       });
     }
 
+    // Close DataChannel
+    if (this.dataChannel) {
+      this.dataChannel.close();
+      this.dataChannel = null;
+    }
+
     // Close WebSocket connection
     if (this.ws) {
       this.ws.close();
@@ -731,6 +919,7 @@ export class WebRTCManager {
     this.sessionId = "";
     this.clientId = "";
     this.isHost = false;
+    this.useDataChannelForInput = false;
 
     // Clear all callback references to prevent memory leaks
     this.onStreamReceived = undefined;
