@@ -450,20 +450,18 @@ function UnifiedPageContent() {
           event.preventDefault();
         }
 
-        // Add a small delay to prevent overwhelming the WebRTC connection
-        setTimeout(() => {
-          if (webrtcManagerRef.current && connectionStatus === "connected") {
-            webrtcManagerRef.current.sendKeyboardEvent(
-              "key_down",
-              event.key,
-              event.code,
-              event.ctrlKey,
-              event.shiftKey,
-              event.altKey,
-              event.metaKey
-            );
-          }
-        }, 1);
+        // Send immediately - DataChannel handles rapid input efficiently
+        if (webrtcManagerRef.current && connectionStatus === "connected") {
+          webrtcManagerRef.current.sendKeyboardEvent(
+            "key_down",
+            event.key,
+            event.code,
+            event.ctrlKey,
+            event.shiftKey,
+            event.altKey,
+            event.metaKey
+          );
+        }
       }
     },
     [isFullscreen, keyboardControlEnabled, connectionStatus]
@@ -481,20 +479,18 @@ function UnifiedPageContent() {
           event.preventDefault();
         }
 
-        // Add a small delay to prevent overwhelming the WebRTC connection
-        setTimeout(() => {
-          if (webrtcManagerRef.current && connectionStatus === "connected") {
-            webrtcManagerRef.current.sendKeyboardEvent(
-              "key_up",
-              event.key,
-              event.code,
-              event.ctrlKey,
-              event.shiftKey,
-              event.altKey,
-              event.metaKey
-            );
-          }
-        }, 1);
+        // Send immediately - DataChannel handles rapid input efficiently
+        if (webrtcManagerRef.current && connectionStatus === "connected") {
+          webrtcManagerRef.current.sendKeyboardEvent(
+            "key_up",
+            event.key,
+            event.code,
+            event.ctrlKey,
+            event.shiftKey,
+            event.altKey,
+            event.metaKey
+          );
+        }
       }
     },
     [keyboardControlEnabled, connectionStatus]

@@ -138,6 +138,9 @@ export class WebRTCManager {
       maxRetransmits: 0, // Don't retransmit for real-time input
     });
 
+    // Set binary type to arraybuffer for better performance
+    this.dataChannel.binaryType = "arraybuffer";
+
     this.dataChannel.onopen = () => {
       console.log("✅ DataChannel opened for input events");
       this.useDataChannelForInput = true;
@@ -199,8 +202,15 @@ export class WebRTCManager {
   // Send message via DataChannel
   private sendDataChannelMessage(message: any) {
     if (this.dataChannel && this.dataChannel.readyState === "open") {
-      this.dataChannel.send(JSON.stringify(message));
-      return true;
+      try {
+        // Use JSON.stringify with minimal spacing for smaller payload
+        const jsonString = JSON.stringify(message);
+        this.dataChannel.send(jsonString);
+        return true;
+      } catch (error) {
+        console.error("Error sending DataChannel message:", error);
+        return false;
+      }
     }
     return false;
   }
