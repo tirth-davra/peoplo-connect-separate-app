@@ -10,10 +10,10 @@ This document describes the migration of input events from WebSocket (TCP) to We
 
 ## Migration Strategy
 
-### Phase 1: Dual Sending (Current Implementation)
-- ✅ Send input events via BOTH WebSocket and DataChannel
-- ✅ DataChannel takes priority when available
-- ✅ WebSocket serves as fallback during transition
+### Phase 1: DataChannel Primary (Current Implementation)
+- ✅ Send input events via DataChannel when available
+- ✅ WebSocket serves as fallback only when DataChannel is not ready
+- ✅ DataChannel is the primary method for input events
 - ✅ No breaking changes to existing functionality
 
 ### Phase 2: Full Migration (Future)
@@ -44,25 +44,24 @@ private useDataChannelForInput: boolean = false;
 {
   ordered: false,           // Allow out-of-order delivery
   maxRetransmits: 0,        // No retransmission for real-time
-  maxPacketLifeTime: 100,   // 100ms max packet lifetime
 }
 ```
 
 ### 2. Input Event Methods Updated
 
 #### Mouse Events (`sendMouseEvent`)
-- Tries DataChannel first
-- Falls back to WebSocket
+- Uses DataChannel when available
+- Falls back to WebSocket only if DataChannel is not ready
 - Logs which method was used (except mouse_move to avoid spam)
 
 #### Keyboard Events (`sendKeyboardEvent`)
-- Tries DataChannel first
-- Falls back to WebSocket
+- Uses DataChannel when available
+- Falls back to WebSocket only if DataChannel is not ready
 - Logs which method was used
 
 #### Screen Resolution (`sendScreenResolution`)
-- Tries DataChannel first
-- Falls back to WebSocket
+- Uses DataChannel when available
+- Falls back to WebSocket only if DataChannel is not ready
 - Logs which method was used
 
 ### 3. Message Handling

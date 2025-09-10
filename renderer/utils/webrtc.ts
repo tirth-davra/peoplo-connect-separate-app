@@ -136,7 +136,6 @@ export class WebRTCManager {
     this.dataChannel = this.peerConnection.createDataChannel("inputEvents", {
       ordered: false, // Allow out-of-order delivery for better latency
       maxRetransmits: 0, // Don't retransmit for real-time input
-      maxPacketLifeTime: 100, // 100ms max packet lifetime
     });
 
     this.dataChannel.onopen = () => {
@@ -719,16 +718,12 @@ export class WebRTCManager {
       // Try DataChannel first (if available and open)
       const dataChannelSent = this.sendDataChannelMessage(message);
       
-      // Always send via WebSocket as fallback during transition
-      if (this.ws?.readyState === WebSocket.OPEN) {
+      // Only send via WebSocket if DataChannel is not available
+      if (!dataChannelSent && this.ws?.readyState === WebSocket.OPEN) {
         this.sendSignalingMessage(message);
-      }
-
-      // Log which method was used for debugging
-      if (dataChannelSent) {
-        console.log(`📡 Sent ${type} via DataChannel`);
-      } else {
         console.log(`🌐 Sent ${type} via WebSocket (DataChannel not available)`);
+      } else if (dataChannelSent) {
+        console.log(`📡 Sent ${type} via DataChannel`);
       }
     }
   }
@@ -750,18 +745,15 @@ export class WebRTCManager {
       // Try DataChannel first (if available and open)
       const dataChannelSent = this.sendDataChannelMessage(message);
       
-      // Always send via WebSocket as fallback during transition
-      if (this.ws?.readyState === WebSocket.OPEN) {
+      // Only send via WebSocket if DataChannel is not available
+      if (!dataChannelSent && this.ws?.readyState === WebSocket.OPEN) {
         this.sendSignalingMessage(message);
-      }
-
-      // Log which method was used for debugging (only for non-mouse_move events to avoid spam)
-      if (type !== "mouse_move") {
-        if (dataChannelSent) {
-          console.log(`📡 Sent ${type} via DataChannel`);
-        } else {
+        // Log only for non-mouse_move events to avoid spam
+        if (type !== "mouse_move") {
           console.log(`🌐 Sent ${type} via WebSocket (DataChannel not available)`);
         }
+      } else if (dataChannelSent && type !== "mouse_move") {
+        console.log(`📡 Sent ${type} via DataChannel`);
       }
     }
   }
@@ -778,14 +770,12 @@ export class WebRTCManager {
       // Try DataChannel first (if available and open)
       const dataChannelSent = this.sendDataChannelMessage(message);
       
-      // Always send via WebSocket as fallback during transition
-      this.sendSignalingMessage(message);
-
-      // Log which method was used for debugging
-      if (dataChannelSent) {
-        console.log("📡 Sent screen_resolution via DataChannel");
-      } else {
+      // Only send via WebSocket if DataChannel is not available
+      if (!dataChannelSent) {
+        this.sendSignalingMessage(message);
         console.log("🌐 Sent screen_resolution via WebSocket (DataChannel not available)");
+      } else {
+        console.log("📡 Sent screen_resolution via DataChannel");
       }
     }
   }
