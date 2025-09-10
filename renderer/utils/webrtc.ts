@@ -35,6 +35,8 @@ export class WebRTCManager {
   private clientId: string = "";
   private isHost: boolean = false;
   private useDataChannelForInput: boolean = false; // Flag to control input method
+  private mouseMoveQueue: Array<{x: number, y: number}> = [];
+  private mouseMoveTimeout: NodeJS.Timeout | null = null;
   private onStreamReceived?: (stream: MediaStream) => void;
   private onConnectionStateChange?: (state: string) => void;
   private onMouseEvent?: (
@@ -140,6 +142,9 @@ export class WebRTCManager {
 
     // Set binary type to arraybuffer for better performance
     this.dataChannel.binaryType = "arraybuffer";
+    
+    // Optimize for high-frequency mouse events
+    this.dataChannel.bufferedAmountLowThreshold = 0;
 
     this.dataChannel.onopen = () => {
       console.log("✅ DataChannel opened for input events");
@@ -178,6 +183,15 @@ export class WebRTCManager {
           }
           break;
 
+        case "mouse_move_batch":
+          if (this.isHost && message.mouseData && Array.isArray(message.mouseData)) {
+            // Process each mouse movement in the batch
+            message.mouseData.forEach((mouseData: {x: number, y: number}) => {
+              this.onMouseEvent?.(mouseData, "mouse_move");
+            });
+          }
+          break;
+
         case "key_down":
         case "key_up":
           if (this.isHost && message.keyboardData) {
@@ -213,6 +227,35 @@ export class WebRTCManager {
       }
     }
     return false;
+  }
+
+  // Send batched mouse movements for better performance
+  private sendBatchedMouseMove() {
+    if (this.mouseMoveQueue.length === 0) return;
+
+    const message = {
+      type: "mouse_move_batch",
+      sessionId: this.sessionId,
+      clientId: this.clientId,
+      mouseData: this.mouseMoveQueue,
+    };
+
+    const dataChannelSent = this.sendDataChannelMessage(message);
+    
+    if (!dataChannelSent && this.ws?.readyState === WebSocket.OPEN) {
+      // Send individual mouse moves via WebSocket as fallback
+      this.mouseMoveQueue.forEach(({x, y}) => {
+        this.sendSignalingMessage({
+          type: "mouse_move",
+          sessionId: this.sessionId,
+          clientId: this.clientId,
+          mouseData: { x, y },
+        });
+      });
+    }
+
+    this.mouseMoveQueue = [];
+    this.mouseMoveTimeout = null;
   }
 
   // Handle incoming DataChannel (when peer creates it)
@@ -745,6 +788,24 @@ export class WebRTCManager {
     button?: "left" | "right" | "middle"
   ) {
     if (!this.isHost) {
+      // Handle mouse movements with batching for better performance
+      if (type === "mouse_move") {
+        this.mouseMoveQueue.push({ x, y });
+        
+        // Clear existing timeout
+        if (this.mouseMoveTimeout) {
+          clearTimeout(this.mouseMoveTimeout);
+        }
+        
+        // Send immediately for very smooth movement
+        this.mouseMoveTimeout = setTimeout(() => {
+          this.sendBatchedMouseMove();
+        }, 0); // Send immediately on next tick
+        
+        return;
+      }
+
+      // Handle other mouse events (clicks, etc.) immediately
       const message = {
         type,
         sessionId: this.sessionId,
@@ -758,12 +819,7 @@ export class WebRTCManager {
       // Only send via WebSocket if DataChannel is not available
       if (!dataChannelSent && this.ws?.readyState === WebSocket.OPEN) {
         this.sendSignalingMessage(message);
-        // Log only for non-mouse_move events to avoid spam
-        if (type !== "mouse_move") {
-          console.log(`🌐 Sent ${type} via WebSocket (DataChannel not available)`);
-        }
-      } else if (dataChannelSent && type !== "mouse_move") {
-        console.log(`📡 Sent ${type} via DataChannel`);
+        console.log(`🌐 Sent ${type} via WebSocket (DataChannel not available)`);
       }
     }
   }
@@ -888,6 +944,12 @@ export class WebRTCManager {
       });
     }
 
+    // Clear mouse move timeout
+    if (this.mouseMoveTimeout) {
+      clearTimeout(this.mouseMoveTimeout);
+      this.mouseMoveTimeout = null;
+    }
+
     // Close DataChannel
     if (this.dataChannel) {
       this.dataChannel.close();
@@ -920,6 +982,7 @@ export class WebRTCManager {
     this.clientId = "";
     this.isHost = false;
     this.useDataChannelForInput = false;
+    this.mouseMoveQueue = [];
 
     // Clear all callback references to prevent memory leaks
     this.onStreamReceived = undefined;

@@ -1228,10 +1228,7 @@ function UnifiedPageContent() {
         return;
       }
 
-      const now = Date.now();
-      if (now - lastMouseMoveRef.current < 16) return; // ~60 FPS
-      lastMouseMoveRef.current = now;
-
+      // Remove throttling for smooth mouse movement - DataChannel handles it efficiently
       const { x, y } = getRelativeMousePosition(event);
       webrtcManagerRef.current.sendMouseEvent("mouse_move", x, y);
     },
