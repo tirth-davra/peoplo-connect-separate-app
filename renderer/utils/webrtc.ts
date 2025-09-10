@@ -242,16 +242,8 @@ export class WebRTCManager {
 
     const dataChannelSent = this.sendDataChannelMessage(message);
     
-    if (!dataChannelSent && this.ws?.readyState === WebSocket.OPEN) {
-      // Send individual mouse moves via WebSocket as fallback
-      this.mouseMoveQueue.forEach(({x, y}) => {
-        this.sendSignalingMessage({
-          type: "mouse_move",
-          sessionId: this.sessionId,
-          clientId: this.clientId,
-          mouseData: { x, y },
-        });
-      });
+    if (!dataChannelSent) {
+      console.warn("⚠️ Failed to send mouse_move_batch - DataChannel not available");
     }
 
     this.mouseMoveQueue = [];
@@ -567,26 +559,16 @@ export class WebRTCManager {
       case "client_disconnected":
         break;
 
+      // Input events are now handled via DataChannel only
+      // These cases are kept for backward compatibility but should not be used
       case "mouse_move":
       case "mouse_click":
       case "mouse_down":
       case "mouse_up":
-        if (this.isHost && message.mouseData) {
-          this.onMouseEvent?.(message.mouseData, message.type);
-        }
-        break;
-
-      case "screen_resolution":
-        if (!this.isHost && message.resolution) {
-          this.onScreenResolution?.(message.resolution);
-        }
-        break;
-
       case "key_down":
       case "key_up":
-        if (this.isHost && message.keyboardData) {
-          this.onKeyboardEvent?.(message.keyboardData, message.type);
-        }
+      case "screen_resolution":
+        console.warn(`⚠️ Received ${message.type} via WebSocket - should use DataChannel`);
         break;
 
       case "permission_request":
@@ -768,15 +750,11 @@ export class WebRTCManager {
         keyboardData: { key, code, ctrlKey, shiftKey, altKey, metaKey },
       };
 
-      // Try DataChannel first (if available and open)
+      // Send via DataChannel only
       const dataChannelSent = this.sendDataChannelMessage(message);
       
-      // Only send via WebSocket if DataChannel is not available
-      if (!dataChannelSent && this.ws?.readyState === WebSocket.OPEN) {
-        this.sendSignalingMessage(message);
-        console.log(`🌐 Sent ${type} via WebSocket (DataChannel not available)`);
-      } else if (dataChannelSent) {
-        console.log(`📡 Sent ${type} via DataChannel`);
+      if (!dataChannelSent) {
+        console.warn(`⚠️ Failed to send ${type} - DataChannel not available`);
       }
     }
   }
@@ -813,13 +791,11 @@ export class WebRTCManager {
         mouseData: { x, y, button },
       };
 
-      // Try DataChannel first (if available and open)
+      // Send via DataChannel only
       const dataChannelSent = this.sendDataChannelMessage(message);
       
-      // Only send via WebSocket if DataChannel is not available
-      if (!dataChannelSent && this.ws?.readyState === WebSocket.OPEN) {
-        this.sendSignalingMessage(message);
-        console.log(`🌐 Sent ${type} via WebSocket (DataChannel not available)`);
+      if (!dataChannelSent) {
+        console.warn(`⚠️ Failed to send ${type} - DataChannel not available`);
       }
     }
   }
@@ -833,15 +809,11 @@ export class WebRTCManager {
         resolution: { width, height },
       };
 
-      // Try DataChannel first (if available and open)
+      // Send via DataChannel only
       const dataChannelSent = this.sendDataChannelMessage(message);
       
-      // Only send via WebSocket if DataChannel is not available
       if (!dataChannelSent) {
-        this.sendSignalingMessage(message);
-        console.log("🌐 Sent screen_resolution via WebSocket (DataChannel not available)");
-      } else {
-        console.log("📡 Sent screen_resolution via DataChannel");
+        console.warn("⚠️ Failed to send screen_resolution - DataChannel not available");
       }
     }
   }
